@@ -78,3 +78,63 @@ if __name__ == "__main__":
     edges, labels, amounts = build_edge_list(df, card_to_idx, addr_to_idx)
 
     summarize_graph(df, card_to_idx, addr_to_idx, edges)
+
+import torch
+from torch_geometric.data import Data
+
+
+def build_pyg_graph(df: pd.DataFrame, card_to_idx: dict, addr_to_idx: dict):
+    """
+    Converts the transaction data into a PyTorch Geometric Data object.
+
+    Graph design:
+    - Card nodes and addr nodes share one combined node index space
+      (cards: 0 to N-1, addrs: N to N+M-1)
+    - Each transaction becomes an edge between its card node and addr node
+    - Edge features: TransactionAmt (normalized)
+    - Node labels: for cards, we propagate whether ANY of their transactions
+      was fraud (simplification for a first working version)
+    """
+    num_cards = len(card_to_idx)
+    num_addrs = len(addr_to_idx)
+    total_nodes = num_cards + num_addrs
+
+    edge_index = []
+    edge_attr = []
+
+    # Track per-card fraud signal (any fraud transaction -> flag card as fraud-adjacent)
+    card_fraud_flag = np.zeros(num_cards)
+
+    for _, row in df.iterrows():
+        card_node = card_to_idx[row["card1"]]
+        addr_node = num_cards + addr_to_idx[row["addr1"]]  # offset into addr space
+
+        # add edges in both directions (undirected graph)
+        edge_index.append([card_node, addr_node])
+        edge_index.append([addr_node, card_node])
+
+        amt = row["TransactionAmt"] if not pd.isna(row["TransactionAmt"]) else 0.0
+        edge_attr.append([amt])
+        edge_attr.append([amt])
+
+        if row["isFraud"] == 1:
+            card_fraud_flag[card_node] = 1
+
+    # Simple node features: just a placeholder for now (node degree could
+    # be added later). Using a constant feature + fraud flag for cards,
+    # zeros for addr nodes (no direct fraud label at merchant-proxy level)
+    node_features = np.zeros((total_nodes, 2))
+    node_features[:num_cards, 0] = 1.0  # marks "is a card node"
+    node_features[num_cards:, 1] = 1.0  # marks "is an addr node"
+
+    # Labels: only cards have a meaningful fraud label for this first version
+    node_labels = np.concatenate([card_fraud_flag, np.full(num_addrs, -1)])  # -1 = no label
+
+    data = Data(
+        x=torch.tensor(node_features, dtype=torch.float),
+        edge_index=torch.tensor(edge_index, dtype=torch.long).t().contiguous(),
+        edge_attr=torch.tensor(edge_attr, dtype=torch.float),
+        y=torch.tensor(node_labels, dtype=torch.float),
+    )
+
+    return data, num_cards, num_addrs

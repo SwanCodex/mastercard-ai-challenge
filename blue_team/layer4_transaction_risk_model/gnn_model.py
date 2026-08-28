@@ -82,13 +82,13 @@ def train_gnn_v3(data, edge_labels, edge_feat_dim, epochs=100, lr=0.001):
 
 
 if __name__ == "__main__":
-    print("Loading data (10% sample)...")
-    df = load_and_clean(frac=0.1)
+    print("Loading data (50% sample - increased from 10%)...")
+    df = load_and_clean(frac=0.5)
     card_to_idx, addr_to_idx = build_node_mappings(df)
 
     print("Building PyG graph v3 (rich features)...")
     data, edge_labels, num_cards, num_addrs, edge_feat_dim = build_pyg_graph_v3(df, card_to_idx, addr_to_idx)
     print(f"Graph: {data.x.shape[0]} nodes, {data.edge_index.shape[1]} edges, edge_feat_dim={edge_feat_dim}")
 
-    print("\nTraining GraphSAGE v3...")
-    model, auroc = train_gnn_v3(data, edge_labels, edge_feat_dim)
+    print("\nTraining GraphSAGE v3 (200 epochs)...")
+    model, auroc = train_gnn_v3(data, edge_labels, edge_feat_dim, epochs=200, lr=0.001)

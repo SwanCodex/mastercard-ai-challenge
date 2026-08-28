@@ -1,4 +1,4 @@
-# SENTINEL — Adversarial AI Defense Lab for Payment Security
+# Adversarial AI Defense Lab for Payment Security
 ### Full Solution Architecture, Research Foundation & 11-Day Execution Plan
 ### Mastercard Innovation Challenge 2026 · Global Fintech Fest, Mumbai
 

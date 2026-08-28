@@ -12,6 +12,7 @@ from shared.schemas.attack_event import AttackEvent
 from blue_team.layer1_fast_filters.regex_heuristics import score_event as layer1_score
 from blue_team.layer2_injection_classifier.inference import score_event as layer2_score
 from blue_team.layer3_alignment_check.llm_judge import score_event as layer3_score
+from blue_team.layer4_transaction_risk_model.inference import score_event as layer4_score
 
 # Layer weights - how much each layer contributes to the final fusion score.
 # These are a starting point; tune based on real evaluation data later.
@@ -29,15 +30,21 @@ REVIEW_THRESHOLD = 0.50
 STEP_UP_THRESHOLD = 0.30
 
 
-def compute_fusion_score(layer_scores: list[LayerScore]) -> float:
+def compute_fusion_score(layer_scores: list[LayerScore], event: AttackEvent) -> float:
     """
-    Weighted average of all layer scores that actually ran.
-    Re-normalizes weights if some layers didn't run (e.g. no audio present).
+    Weighted average of all layer scores that actually ran, with
+    event-aware weighting: text-based layers only count if there's
+    real untrusted content or an agent trace to actually judge.
     """
+    has_text_signal = bool(event.untrusted_input or event.agent_reasoning_trace)
+
     total_weight = 0.0
     weighted_sum = 0.0
 
     for ls in layer_scores:
+        if ls.layer_name in ("layer1_fast_filters", "layer2_injection_classifier", "layer3_alignment_check") and not has_text_signal:
+            continue
+
         weight = LAYER_WEIGHTS.get(ls.layer_name, 0.0)
         weighted_sum += ls.score * weight
         total_weight += weight
@@ -46,8 +53,6 @@ def compute_fusion_score(layer_scores: list[LayerScore]) -> float:
         return 0.0
 
     return weighted_sum / total_weight
-
-
 def decide(fusion_score: float) -> str:
     if fusion_score >= DECLINE_THRESHOLD:
         return "decline"
@@ -73,7 +78,10 @@ def run_pipeline(event: AttackEvent) -> Verdict:
         layer3_score(event),
     ]
 
-    fusion_score = compute_fusion_score(layer_scores)
+    if event.transaction_fields:
+        layer_scores.append(layer4_score(event))
+
+    fusion_score = compute_fusion_score(layer_scores, event)
     decision = decide(fusion_score)
     attack_caught = decision in ("decline", "review")
 
@@ -130,3 +138,57 @@ if __name__ == "__main__":
     print("\n=== ATTACK EVENT ===")
     verdict2 = run_pipeline(attack_event)
     print(verdict2.model_dump_json(indent=2))
+
+        # Test with a transaction-shaped event (Layer 4 integration test)
+    fraud_transaction_event = AttackEvent(
+        event_id="test-fraud-txn-001",
+        timestamp=datetime.now(),
+        track="track_c_synthetic_id",
+        user_instruction="Process this transaction.",
+        untrusted_input=None,
+        agent_reasoning_trace=None,
+        transaction_fields={
+            "TransactionAmt": 445.0,
+            "card1": 18268,
+            "card2": 583.0,
+            "card4": "visa",
+            "card6": "credit",
+            "ProductCD": "W",
+            "C1": 2.0,
+            "C2": 2.0,
+        },
+        campaign_id="fusion-test",
+        round_number=1,
+        attack_variant_id="real-fraud-sample",
+        attack_succeeded_against_agent=True,
+    )
+
+    safe_transaction_event = AttackEvent(
+        event_id="test-safe-txn-001",
+        timestamp=datetime.now(),
+        track="track_c_synthetic_id",
+        user_instruction="Process this transaction.",
+        untrusted_input=None,
+        agent_reasoning_trace=None,
+        transaction_fields={
+            "TransactionAmt": 68.5,
+            "card1": 13926,
+            "card4": "discover",
+            "card6": "credit",
+            "ProductCD": "W",
+            "C1": 1.0,
+            "C2": 1.0,
+        },
+        campaign_id="fusion-test",
+        round_number=1,
+        attack_variant_id="real-safe-sample",
+        attack_succeeded_against_agent=False,
+    )
+
+    print("\n=== FRAUD TRANSACTION EVENT (Layer 4 test) ===")
+    verdict3 = run_pipeline(fraud_transaction_event)
+    print(verdict3.model_dump_json(indent=2))
+
+    print("\n=== SAFE TRANSACTION EVENT (Layer 4 test) ===")
+    verdict4 = run_pipeline(safe_transaction_event)
+    print(verdict4.model_dump_json(indent=2))

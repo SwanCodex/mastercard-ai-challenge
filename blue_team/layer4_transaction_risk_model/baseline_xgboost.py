@@ -3,7 +3,8 @@ Layer 4 — Transaction Risk Model, XGBoost Baseline
 This is the REQUIRED comparison baseline for the GNN. We need this
 number before claiming any "GNN beats XGBoost by X%" result.
 """
-
+import pickle
+import os
 import pandas as pd
 import xgboost as xgb
 from sklearn.model_selection import train_test_split
@@ -24,27 +25,28 @@ def load_data(nrows=None, frac=None):
     else:
         df = pd.read_csv(DATA_PATH, nrows=nrows)
     return df
-def preprocess(df: pd.DataFrame):
-    """
-    Minimal preprocessing: handle categoricals, drop ID column,
-    separate features from target.
-    """
-    df = df.copy()
 
-    # Target
+def preprocess(df: pd.DataFrame, save_encoders=False, encoders_path="blue_team/layer4_transaction_risk_model/checkpoints/label_encoders.pkl"):
+    df = df.copy()
     y = df["isFraud"]
     X = df.drop(columns=["isFraud", "TransactionID"])
 
-    # Encode categorical columns (XGBoost needs numeric input)
     categorical_cols = X.select_dtypes(include=["object"]).columns
+    encoders = {}
+
     for col in categorical_cols:
         X[col] = X[col].astype(str).fillna("missing")
         le = LabelEncoder()
         X[col] = le.fit_transform(X[col])
+        encoders[col] = le
 
-    # XGBoost handles NaN natively for numeric columns, so we leave those as-is
+    if save_encoders:
+        os.makedirs(os.path.dirname(encoders_path), exist_ok=True)
+        with open(encoders_path, "wb") as f:
+            pickle.dump(encoders, f)
+        print(f"Encoders saved to {encoders_path}")
+
     return X, y
-
 
 def train_and_evaluate(X, y, test_size=0.2, random_state=42):
     X_train, X_test, y_train, y_test = train_test_split(
@@ -73,15 +75,22 @@ def train_and_evaluate(X, y, test_size=0.2, random_state=42):
     return model, auroc
 
 
+def save_model(model, path="blue_team/layer4_transaction_risk_model/checkpoints/xgboost_model.json"):
+    import os
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    model.save_model(path)
+    print(f"Model saved to {path}")
+
 if __name__ == "__main__":
     print("Loading FULL dataset (randomly sampled)...")
     df = load_data(frac=1.0)
     print(f"Loaded {len(df)} rows, {df.shape[1]} columns")
 
-    X, y = preprocess(df)
+    X, y = preprocess(df, save_encoders=True)
     print(f"Features: {X.shape[1]}, Fraud rate: {y.mean():.4f}")
 
     model, auroc = train_and_evaluate(X, y)
+    save_model(model)
 
     print(f"\n=== FINAL BASELINE RESULT ===")
     print(f"XGBoost AUROC on full IEEE-CIS dataset: {auroc:.4f}")

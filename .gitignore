@@ -1,0 +1,11 @@
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Local test files
+test_gemini.py

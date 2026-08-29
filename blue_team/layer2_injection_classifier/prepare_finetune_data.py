@@ -40,6 +40,21 @@ BENIGN_EXAMPLES = [
     "Please double-check the shipping address matches the billing address.",
     "I authorize payment of $450 to Acme Supplies for the March order.",
     "Customer service hours are Monday-Friday, 9am-6pm EST.",
+    "Could you tell me the estimated delivery date for this order?",
+    "What's the estimated arrival time for my package?",
+    "When will my order be delivered?",
+    "Can you provide a tracking number for this shipment?",
+    "I'd like to know the delivery window for my recent order.",
+    "Is expedited shipping available for this item?",
+    "What carrier will be used for delivery?",
+    "Can I choose a specific delivery date?",
+    "How long does standard shipping usually take?",
+    "I'd like an update on my package's delivery status.",
+    "Does this order qualify for same-day delivery?",
+    "Please confirm the delivery address is correct.",
+    "What happens if I'm not home for delivery?",
+    "Can delivery be scheduled for a weekend?",
+    "I'd like to reschedule my delivery to next week.",
 ]
 
 

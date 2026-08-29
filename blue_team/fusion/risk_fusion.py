@@ -53,7 +53,18 @@ def compute_fusion_score(layer_scores: list[LayerScore], event: AttackEvent) -> 
         return 0.0
 
     return weighted_sum / total_weight
-def decide(fusion_score: float) -> str:
+
+MAX_OVERRIDE_THRESHOLD = 0.85  # if any single layer is this confident, escalate regardless of fusion average
+
+
+def decide(fusion_score: float, layer_scores: list[LayerScore] = None) -> str:
+    # Max-override: if any single layer is highly confident, don't let
+    # a diluted weighted average undercut a strong individual signal
+    if layer_scores:
+        max_layer_score = max((ls.score for ls in layer_scores), default=0.0)
+        if max_layer_score >= MAX_OVERRIDE_THRESHOLD:
+            return "review"  # escalate for human review, even if fusion average is low
+
     if fusion_score >= DECLINE_THRESHOLD:
         return "decline"
     elif fusion_score >= REVIEW_THRESHOLD:
@@ -82,8 +93,8 @@ def run_pipeline(event: AttackEvent) -> Verdict:
         layer_scores.append(layer4_score(event))
 
     fusion_score = compute_fusion_score(layer_scores, event)
-    decision = decide(fusion_score)
-    attack_caught = decision in ("decline", "review")
+    decision = decide(fusion_score, layer_scores)
+    attack_caught = decision in ("decline", "review", "step_up")
 
     reasons = [f"{ls.layer_name}: {ls.reason}" for ls in layer_scores if ls.flagged]
     explanation = "; ".join(reasons) if reasons else "No layers flagged this event."

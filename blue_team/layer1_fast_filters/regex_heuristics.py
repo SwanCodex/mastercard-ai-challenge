@@ -28,6 +28,8 @@ RULES: list[tuple[str, re.Pattern, float]] = [
     ("disregard_user", re.compile(r"\bdisregard\s+(the\s+)?user'?s?\s+(request|instruction)\b", re.I), 0.85),
     ("new_iban_swap", re.compile(r"\b(new|updated)\s+(iban|account\s+number|beneficiary)\b", re.I), 0.75),
     ("urgency_pressure", re.compile(r"\b(urgent|immediately|right\s+away)\b.{0,40}\b(pay|approve|transfer)\b", re.I), 0.5),
+    ("prior_verification_claim", re.compile(r"\b(pre[\-\s]?verified|already verified|verified (by|prior)|verification (has been|was) (handled|completed|satisfied))\b", re.I), 0.75),
+    ("skip_verification_instruction", re.compile(r"\b(skip|bypass|no need to (run|repeat|re-run)|treat.{0,20}as satisfied).{0,40}(verif|check|liveness|otp)", re.I), 0.75),
 ]
 
 FLAG_THRESHOLD = 0.6

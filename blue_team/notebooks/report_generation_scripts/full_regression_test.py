@@ -124,8 +124,26 @@ for e in missed:
     print(f"  - {e.attack_variant_id} ({e.track})")
 
 # 10. Overall summary
+# Note: Track A's converter sets attack_succeeded_against_agent=False as a
+# placeholder (ground truth unknown without a live mock-agent run), so we
+# can't rely on that field here. Instead, sum the per-track results that
+# each already compare against their own correct ground truth.
 print("\n\n=== OVERALL SUMMARY ===")
-total = len(results)
-total_caught = sum(1 for _, v in results if v.attack_caught)
-print(f"Total events tested: {total}")
-print(f"Total caught: {total_caught} ({total_caught/total:.1%})")
+
+manual_attack_cases = [
+    (clean_event, False), (attack_event, True), (fraud_txn, True),
+    (safe_txn, False), (audio_event, True),
+] + [(e, True) for e in backstop_events]
+
+manual_results = [(e, v) for e, v in results if any(e.event_id == me.event_id for me, _ in manual_attack_cases)]
+manual_true_attacks = [(e, v) for e, v in manual_results
+                        if next(is_attack for me, is_attack in manual_attack_cases if me.event_id == e.event_id)]
+manual_caught = sum(1 for _, v in manual_true_attacks if v.attack_caught)
+
+total_real_attacks = len(manual_true_attacks) + len(track_a_events) + len(liveness_events)
+total_caught = manual_caught + track_a_caught + liveness_caught
+
+print(f"Manual attack cases: {manual_caught}/{len(manual_true_attacks)} caught")
+print(f"Track A: {track_a_caught}/{len(track_a_events)} caught")
+print(f"Track B liveness: {liveness_caught}/{len(liveness_events)} caught")
+print(f"\nTOTAL REAL ATTACKS: {total_caught}/{total_real_attacks} caught ({total_caught/total_real_attacks:.1%})")

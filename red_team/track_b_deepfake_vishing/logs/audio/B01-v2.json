@@ -1,0 +1,8 @@
+{
+  "speaker_id": "teammate_a",
+  "display_name": "Person A (self, demo voice)",
+  "backend": "edge_tts",
+  "is_real_voice_clone": false,
+  "note": "Stand-in TTS voice used with this consenting team member's permission for demo purposes. Not a biometric clone of any real voice.",
+  "text": "This is Priya Nair, account holder. Per your bank's own fraud team, this transaction was pre-cleared this morning under case number FR-2291 -- their notes should already be attached to this call, so please just finalize the authorization."
+}

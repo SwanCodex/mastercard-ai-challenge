@@ -12,7 +12,7 @@ from sklearn.model_selection import train_test_split
 from blue_team.layer4_transaction_risk_model.graph_builder import (
     load_and_clean,
     build_node_mappings,
-    build_pyg_graph_v3,
+    build_pyg_graph_v4,
 )
 
 
@@ -82,13 +82,13 @@ def train_gnn_v3(data, edge_labels, edge_feat_dim, epochs=100, lr=0.001):
 
 
 if __name__ == "__main__":
-    print("Loading data (50% sample - increased from 10%)...")
-    df = load_and_clean(frac=0.5)
+    print("Loading data (full dataset)...")
+    df = load_and_clean(frac=1.0)
     card_to_idx, addr_to_idx = build_node_mappings(df)
 
-    print("Building PyG graph v3 (rich features)...")
-    data, edge_labels, num_cards, num_addrs, edge_feat_dim = build_pyg_graph_v3(df, card_to_idx, addr_to_idx)
+    print("Building PyG graph v4 (v3 features + 131 low-missing V-columns + D10)...")
+    data, edge_labels, num_cards, num_addrs, edge_feat_dim = build_pyg_graph_v4(df, card_to_idx, addr_to_idx)
     print(f"Graph: {data.x.shape[0]} nodes, {data.edge_index.shape[1]} edges, edge_feat_dim={edge_feat_dim}")
 
-    print("\nTraining GraphSAGE v3 (200 epochs)...")
-    model, auroc = train_gnn_v3(data, edge_labels, edge_feat_dim, epochs=200, lr=0.001)
+    print("\nTraining GraphSAGE v4 (300 epochs, full dataset)...")
+    model, auroc = train_gnn_v3(data, edge_labels, edge_feat_dim, epochs=300, lr=0.001)

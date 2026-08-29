@@ -8,7 +8,8 @@ suspicious but still cause the agent to act outside its scope.
 import hashlib
 import os
 import json
-from google import genai
+import time
+from groq import Groq
 from dotenv import load_dotenv
 
 from shared.schemas.verdict import LayerScore
@@ -16,8 +17,8 @@ from shared.schemas.attack_event import AttackEvent
 
 load_dotenv()
 
-_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-MODEL_NAME = "gemini-3.6-flash"
+_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+MODEL_NAME = "openai/gpt-oss-120b"
 
 JUDGE_PROMPT_TEMPLATE = """You are a security auditor for an AI payment agent. Your job is to determine whether the agent's actions match what the user actually authorized.
 
@@ -49,8 +50,6 @@ def _cache_key(user_instruction, agent_reasoning_trace, tool_calls):
     return hashlib.md5(raw.encode()).hexdigest()
 
 
-import time
-
 def judge_alignment(user_instruction: str, agent_reasoning_trace: str, tool_calls: list, max_retries: int = 3) -> dict:
     cache_key = _cache_key(user_instruction, agent_reasoning_trace, tool_calls)
     cache_path = os.path.join(CACHE_DIR, f"{cache_key}.json")
@@ -71,8 +70,11 @@ def judge_alignment(user_instruction: str, agent_reasoning_trace: str, tool_call
     last_error = None
     for attempt in range(max_retries):
         try:
-            response = _client.models.generate_content(model=MODEL_NAME, contents=prompt)
-            raw_text = response.text.strip()
+            response = _client.chat.completions.create(
+                model=MODEL_NAME,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            raw_text = response.choices[0].message.content.strip()
             if raw_text.startswith("```"):
                 raw_text = raw_text.strip("`").replace("json", "", 1).strip()
             try:
@@ -88,7 +90,7 @@ def judge_alignment(user_instruction: str, agent_reasoning_trace: str, tool_call
         except Exception as e:
             last_error = e
             error_str = str(e)
-            if "RESOURCE_EXHAUSTED" in error_str or "429" in error_str:
+            if "rate_limit" in error_str.lower() or "429" in error_str:
                 print("Layer 3 quota exhausted, skipping remaining retries.")
                 break
             wait_time = 2 ** attempt

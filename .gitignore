@@ -68,3 +68,5 @@ htmlcov/
 *.tmp
 *.temp
 blue_team/layer3_alignment_check/.cache/
+
+blue_team/layer5_deepfake_detector/finetune_audio/

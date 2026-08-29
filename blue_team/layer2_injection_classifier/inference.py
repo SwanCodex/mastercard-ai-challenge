@@ -9,26 +9,34 @@ payloads later.
 from transformers import pipeline
 from shared.schemas.verdict import LayerScore
 from shared.schemas.attack_event import AttackEvent
-
-MODEL_NAME = "protectai/deberta-v3-base-prompt-injection-v2"
+import os
 
 # Loaded once at module import time — reused across calls (loading the
 # model is slow, ~few seconds; running it per-call is fast, ~milliseconds)
-_classifier = pipeline("text-classification", model=MODEL_NAME)
+
+
+MODEL_NAME = "protectai/deberta-v3-base-prompt-injection-v2"
+FINETUNED_PATH = "blue_team/layer2_injection_classifier/checkpoints/finetuned_v1"
+
+_classifier = None
+
+def get_classifier(use_finetuned=False):
+    global _classifier
+    if _classifier is None:
+        model_path = FINETUNED_PATH if (use_finetuned and os.path.exists(FINETUNED_PATH)) else MODEL_NAME
+        _classifier = pipeline("text-classification", model=model_path)
+    return _classifier
 
 FLAG_THRESHOLD = 0.5
 
 
-def classify(text: str) -> dict:
-    """
-    Run the injection classifier on raw text.
-    Returns the model's raw output: label + confidence score.
-    """
+def classify(text: str, use_finetuned: bool = True) -> dict:
     if not text:
         return {"label": "SAFE", "score": 0.0}
 
-    result = _classifier(text, truncation=True)[0]
-    return result  # e.g. {'label': 'INJECTION', 'score': 0.987}
+    classifier = get_classifier(use_finetuned=use_finetuned)
+    result = classifier(text, truncation=True)[0]
+    return result
 
 
 def score_event(event: AttackEvent) -> LayerScore:

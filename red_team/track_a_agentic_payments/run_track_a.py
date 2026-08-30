@@ -55,6 +55,7 @@ Full campaign:
 """
 
 from __future__ import annotations
+from datetime import datetime, timezone
 
 import argparse
 import glob
@@ -1121,6 +1122,9 @@ def build_attack_event(
 ) -> Dict[str, Any]:
 
     event = AttackEvent(
+        event_id=f"{campaign_id}-{attack_variant_id}-{round_number}",
+        timestamp=datetime.now(timezone.utc),
+        track="track_a_agentic",
         user_instruction=user_instruction,
         untrusted_input=untrusted_input,
         agent_reasoning_trace=reasoning_trace,

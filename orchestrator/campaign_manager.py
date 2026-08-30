@@ -31,6 +31,18 @@ class CampaignManager:
 
         return verdict
 
+    def run_campaign_from_file(
+        self,
+        event_log_path: str,
+    ) -> list[Verdict]:
+        """Load Red Team AttackEvents from JSONL and evaluate the campaign."""
+
+        from orchestrator.red_team_adapter import load_attack_events
+
+        attack_events = load_attack_events(event_log_path)
+
+        return self.run_campaign(attack_events)
+
     def run_campaign(
         self,
         attack_events: list[AttackEvent],

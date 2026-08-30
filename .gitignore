@@ -68,3 +68,9 @@ htmlcov/
 *.tmp
 *.temp
 blue_team/layer3_alignment_check/.cache/
+
+# Local fine-tuned model bundles
+blue_team/layer2_injection_classifier/layer2_finetuned_v1/
+blue_team/layer5_deepfake_detector/layer5_finetuned_v1/
+# Exported model archives
+*.zip

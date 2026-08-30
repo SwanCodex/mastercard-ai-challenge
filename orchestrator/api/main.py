@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from orchestrator.real_defense_pipeline import RealDefensePipeline
 from orchestrator.campaign_manager import CampaignManager
 from shared.schemas.attack_event import AttackEvent
 from shared.schemas.verdict import Verdict
@@ -12,25 +13,9 @@ app = FastAPI(
 )
 
 
-def mock_defense(event: AttackEvent) -> Verdict:
-    """Temporary defense adapter for orchestrator integration testing."""
-
-    return Verdict(
-        event_id=event.event_id,
-        timestamp=event.timestamp,
-        layer_scores=[],
-        fusion_score=0.95 if event.attack_succeeded_against_agent else 0.05,
-        decision="decline" if event.attack_succeeded_against_agent else "approve",
-        attack_caught=event.attack_succeeded_against_agent,
-        explanation="Temporary mock defense used for orchestrator integration testing.",
-        latency_ms=1.0,
-    )
-
-
 campaign_manager = CampaignManager(
-    defense_pipeline=mock_defense
+    defense_pipeline=RealDefensePipeline()
 )
-
 
 @app.get("/health")
 def health_check():

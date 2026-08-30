@@ -50,6 +50,10 @@ def get_metrics(campaign_id: str):
 
     return metrics
 
+@app.get("/get_campaign_records/{campaign_id}")
+def get_campaign_records(campaign_id: str):
+    return campaign_manager.event_store.get_campaign_records(campaign_id)
+
 @app.post("/run_campaign", response_model=list[Verdict])
 def run_campaign(events: list[AttackEvent]):
     return campaign_manager.run_campaign(events)

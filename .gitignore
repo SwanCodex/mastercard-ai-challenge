@@ -67,3 +67,4 @@ htmlcov/
 # Temporary files
 *.tmp
 *.temp
+blue_team/layer3_alignment_check/.cache/

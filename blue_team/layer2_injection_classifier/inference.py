@@ -16,8 +16,7 @@ import os
 
 
 MODEL_NAME = "protectai/deberta-v3-base-prompt-injection-v2"
-FINETUNED_PATH = "blue_team/layer2_injection_classifier/checkpoints/finetuned_v1"
-
+FINETUNED_PATH = "blue_team/layer2_injection_classifier/layer2_finetuned_v1"
 _classifier = None
 
 def get_classifier(use_finetuned=False):

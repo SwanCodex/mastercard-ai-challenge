@@ -10,8 +10,8 @@ import numpy as np
 from shared.schemas.verdict import LayerScore
 from shared.schemas.attack_event import AttackEvent
 
-MODEL_PATH = "blue_team/layer4_transaction_risk_model/checkpoints/xgboost_model.json"
-ENCODERS_PATH = "blue_team/layer4_transaction_risk_model/checkpoints/label_encoders.pkl"
+MODEL_PATH = "blue_team/layer4_transaction_risk_model/layer4_checkpoints/xgboost_model.json"
+ENCODERS_PATH = "blue_team/layer4_transaction_risk_model/layer4_checkpoints/label_encoders.pkl"
 
 _model = None
 _encoders = None

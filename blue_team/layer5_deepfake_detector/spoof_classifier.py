@@ -3,21 +3,25 @@ Layer 5 - Audio Deepfake Detector
 Uses a pretrained wav2vec2-based model fine-tuned specifically for
 deepfake/spoofed audio detection.
 """
-
 import os
 import imageio_ffmpeg
 
-_ffmpeg_dir = os.path.dirname(imageio_ffmpeg.get_ffmpeg_exe())
-os.environ["PATH"] = _ffmpeg_dir + os.pathsep + os.environ.get("PATH", "")
+_ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+_ffmpeg_dir = os.path.dirname(_ffmpeg_exe)
+
+os.environ["PATH"] = (
+    _ffmpeg_dir
+    + os.pathsep
+    + os.environ.get("PATH", "")
+)
 
 from transformers import pipeline
 
 from shared.schemas.verdict import LayerScore
 from shared.schemas.attack_event import AttackEvent
 
-MODEL_NAME = "Gustking/wav2vec2-large-xlsr-deepfake-audio-classification"
-
-_classifier = None
+MODEL_NAME = "blue_team/layer5_deepfake_detector/layer5_finetuned_v1"
+_classifier = pipeline("audio-classification", model=MODEL_NAME)
 
 def get_classifier():
     global _classifier

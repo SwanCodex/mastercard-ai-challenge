@@ -1,4 +1,5 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+
 
 from orchestrator.real_defense_pipeline import RealDefensePipeline
 from orchestrator.campaign_manager import CampaignManager
@@ -24,6 +25,18 @@ def health_check():
         "service": "sentinel-orchestrator",
     }
 
+@app.get("/get_verdict/{event_id}", response_model=Verdict)
+def get_verdict(event_id: str):
+    verdicts = campaign_manager.event_store.get_verdicts()
+
+    for verdict in reversed(verdicts):
+        if verdict.event_id == event_id:
+            return verdict
+
+    raise HTTPException(
+        status_code=404,
+        detail=f"Verdict not found for event_id: {event_id}",
+    )
 
 @app.post("/run_campaign", response_model=list[Verdict])
 def run_campaign(events: list[AttackEvent]):

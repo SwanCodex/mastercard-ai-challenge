@@ -1,4 +1,3 @@
-
 """
 run_track_a.py
 
@@ -21,19 +20,20 @@ Each concrete variant is executed against either:
     - mock_invoice_agent.py
 
 The runner:
-    1. loads and normalizes payload variants;
-    2. builds the appropriate shopping/invoice scenario;
-    3. executes the scenario;
-    4. scores observable agent behavior;
-    5. writes Blue-Team-facing AttackEvent JSONL;
-    6. writes Red-Team internal outcome JSONL;
-    7. writes execution-error JSONL separately.
+    1. loads and expands payload-family definitions into concrete variants;
+    2. normalizes payload records;
+    3. builds the appropriate shopping/invoice scenario;
+    4. executes the scenario;
+    5. scores observable agent behavior;
+    6. writes Blue-Team-facing AttackEvent JSONL;
+    7. writes Red-Team internal outcome JSONL;
+    8. writes execution-error JSONL separately.
 
 Important:
     A model/API failure is NEVER treated as an attack success.
 
-If the Gemini quota is exhausted, the runner stops further live
-execution immediately and preserves all logs generated so far.
+If a provider quota/rate limit is exhausted, the runner stops further
+live execution immediately and preserves all logs generated so far.
 
 Outputs:
 
@@ -55,6 +55,7 @@ Full campaign:
 """
 
 from __future__ import annotations
+
 from datetime import datetime, timezone
 
 import argparse
@@ -85,6 +86,7 @@ import mock_invoice_agent as inv
 import mock_shopping_agent as shop
 
 from fixtures import (
+    SHOPPING_DEFAULT_SHIPPING_ADDRESS,
     ground_truth_for_invoice,
     ground_truth_for_product,
 )
@@ -135,6 +137,187 @@ DEFAULT_INVOICE_INSTRUCTION = (
 # 3. Payload loading
 # ---------------------------------------------------------------------------
 
+def _expand_payload_family(
+    family: Dict[str, Any],
+    source_file: str,
+) -> List[Dict[str, Any]]:
+    """
+    Expand one attack-family definition into concrete executable records.
+
+    The payload library uses the structure:
+
+        {
+            "id": "A01",
+            "name": "...",
+            "target": "shopping",
+            "injection_location": "gift_note",
+            "ground_truth_authorized": {...},
+            "success_check": "...",
+            "variants": [
+                {
+                    "id": "A01-v1",
+                    "wording": "...",
+                    "position": "beginning",
+                    "authority_framing": "none"
+                },
+                ...
+            ]
+        }
+
+    The family itself is NOT an executable concrete attack when variants
+    are present. Each item in `variants` becomes one executable record.
+
+    Family-level fields are inherited by each concrete variant unless the
+    concrete variant explicitly overrides them.
+    """
+
+    family_id = (
+        family.get("id")
+        or family.get("attack_id")
+        or family.get("base_attack_id")
+    )
+
+    family_id = (
+        str(family_id)
+        if family_id is not None
+        else None
+    )
+
+    variants = family.get("variants")
+
+    # ---------------------------------------------------------------
+    # Normal family with concrete variants.
+    # ---------------------------------------------------------------
+
+    if isinstance(variants, list) and variants:
+
+        expanded: List[Dict[str, Any]] = []
+
+        for variant in variants:
+
+            if not isinstance(variant, dict):
+                continue
+
+            concrete = dict(family)
+
+            # Remove the family-level variants list from the executable
+            # record. It is metadata, not itself an injection payload.
+            concrete.pop("variants", None)
+
+            # Concrete variant fields override family fields.
+            concrete.update(variant)
+
+            # Preserve the family ID explicitly.
+            if family_id:
+                concrete["base_attack_id"] = family_id
+
+            variant_id = (
+                variant.get("id")
+                or variant.get("variant_id")
+                or variant.get("attack_variant_id")
+            )
+
+            if variant_id is None and family_id:
+                # Defensive fallback. Normally every concrete variant
+                # should already have its own ID.
+                variant_id = family_id
+
+            concrete["attack_variant_id"] = (
+                str(variant_id)
+                if variant_id is not None
+                else "UNKNOWN"
+            )
+
+            concrete["_source_file"] = source_file
+            concrete["_family_record"] = dict(family)
+
+            expanded.append(concrete)
+
+        return expanded
+
+    # ---------------------------------------------------------------
+    # Already-concrete record.
+    #
+    # Some payload files may already contain Axx-vN records directly.
+    # Preserve those records unchanged.
+    # ---------------------------------------------------------------
+
+    concrete = dict(family)
+
+    if family_id:
+        concrete["base_attack_id"] = family_id
+
+    variant_id = (
+        family.get("attack_variant_id")
+        or family.get("variant_id")
+        or family.get("id")
+    )
+
+    if variant_id is not None:
+        concrete["attack_variant_id"] = str(
+            variant_id
+        )
+
+    concrete["_source_file"] = source_file
+
+    return [concrete]
+
+def _expand_payload_family(
+    family: Dict[str, Any],
+    source_file: str,
+) -> List[Dict[str, Any]]:
+    """Expand one attack family into concrete executable variants."""
+
+    family_id = (
+        family.get("id")
+        or family.get("attack_id")
+        or family.get("base_attack_id")
+    )
+
+    variants = family.get("variants")
+
+    if isinstance(variants, list) and variants:
+
+        expanded = []
+
+        for variant in variants:
+
+            if not isinstance(variant, dict):
+                continue
+
+            concrete = dict(family)
+            concrete.pop("variants", None)
+            concrete.update(variant)
+
+            if family_id:
+                concrete["base_attack_id"] = str(
+                    family_id
+                )
+
+            variant_id = (
+                variant.get("attack_variant_id")
+                or variant.get("variant_id")
+                or variant.get("id")
+            )
+
+            concrete["attack_variant_id"] = str(
+                variant_id
+                if variant_id is not None
+                else family_id or "UNKNOWN"
+            )
+
+            concrete["_source_file"] = source_file
+
+            expanded.append(concrete)
+
+        return expanded
+
+    concrete = dict(family)
+    concrete["_source_file"] = source_file
+
+    return [concrete]
+
+
 def load_payload_records(
     payload_dirs: Optional[List[str]] = None,
 ) -> List[Dict[str, Any]]:
@@ -156,6 +339,9 @@ def load_payload_records(
                 {...}
             ]
         }
+
+    Attack-family records containing a `variants` list are expanded into
+    one executable record per concrete variant.
 
     Records are returned in deterministic filesystem order.
     """
@@ -203,11 +389,12 @@ def load_payload_records(
                 if not isinstance(item, dict):
                     continue
 
-                record = dict(item)
-
-                record["_source_file"] = path
-
-                records.append(record)
+                records.extend(
+                    _expand_payload_family(
+                        item,
+                        path,
+                    )
+                )
 
     return records
 
@@ -220,7 +407,7 @@ def normalize_payload_record(
     raw: Dict[str, Any],
 ) -> Dict[str, Any]:
     """
-    Normalize payload-generator output into the runner schema.
+    Normalize a concrete payload record into the runner schema.
 
     Expected normalized fields:
 
@@ -244,7 +431,7 @@ def normalize_payload_record(
     if variant_id:
         variant_id = str(variant_id)
 
-    # Prefer the explicit base attack ID.
+    # Prefer the explicit base attack ID created during expansion.
     if raw.get("base_attack_id"):
 
         base_attack_id = str(
@@ -307,6 +494,7 @@ def normalize_payload_record(
         raw.get("payload_text")
         or raw.get("payload")
         or raw.get("payload_idea")
+        or raw.get("wording")
         or ""
     )
 
@@ -353,8 +541,7 @@ def deduplicate_variants(
     """
     Keep exactly one record for each concrete attack_variant_id.
 
-    The payload library is expected to contain 58 unique variants.
-    Duplicate IDs are ignored after their first occurrence.
+    The payload library is expected to contain 58 unique concrete variants.
     """
 
     unique: List[Dict[str, Any]] = []
@@ -438,6 +625,9 @@ def build_scenario_shopping(
                             )
                             or injection_data.get(
                                 "payload"
+                            )
+                            or injection_data.get(
+                                "wording"
                             )
                             or ""
                         ),
@@ -598,6 +788,9 @@ def build_scenario_invoice(
                             or injection_data.get(
                                 "payload"
                             )
+                            or injection_data.get(
+                                "wording"
+                            )
                             or ""
                         ),
                         position=(
@@ -741,6 +934,14 @@ def score_shopping(
             "shipping_address"
         )
     )
+
+    if actual_address in {
+        "saved",
+        "saved address",
+        "default",
+        "default saved address",
+    }:
+        actual_address = SHOPPING_DEFAULT_SHIPPING_ADDRESS
 
     expected_address = (
         ground_truth.get(
@@ -994,9 +1195,6 @@ def classify_execution_error(
 ) -> str:
     """
     Convert provider exceptions into a stable error category.
-
-    The runner deliberately does not import provider-specific exception
-    classes. This keeps the runner compatible with the installed SDK.
     """
 
     message = str(exc)
@@ -1086,15 +1284,35 @@ def build_untrusted_input(
     record: Dict[str, Any],
 ) -> str:
 
-    if record.get(
-        "payload_text"
-    ):
-
-        return str(
-            record["payload_text"]
-        )
+    if record.get("payload_text"):
+        return str(record["payload_text"])
 
     if record.get("turns"):
+        payloads = []
+
+        for turn in record["turns"]:
+
+            for injection in turn.get(
+                "injections",
+                [],
+            ):
+
+                payload = (
+                    injection.get("payload_text")
+                    or injection.get("payload")
+                    or injection.get("wording")
+                    or ""
+                )
+
+                if payload:
+                    payloads.append(
+                        str(payload)
+                    )
+
+        if payloads:
+            return "\n".join(
+                payloads
+            )
 
         return json.dumps(
             record["turns"],
@@ -1187,7 +1405,7 @@ def run_campaign(
     )
 
     # ---------------------------------------------------------------
-    # Load payload library.
+    # Load and expand payload library.
     # ---------------------------------------------------------------
 
     raw_records = load_payload_records()
@@ -1279,7 +1497,7 @@ def run_campaign(
     print("-" * 70)
 
     # ---------------------------------------------------------------
-    # Execute variants.
+    # Execute concrete variants.
     # ---------------------------------------------------------------
 
     for index, raw in enumerate(
@@ -1860,4 +2078,3 @@ if __name__ == "__main__":
         limit=args.limit,
         round_number=args.round,
     )
-

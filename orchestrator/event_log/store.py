@@ -5,6 +5,7 @@ from typing import Type, TypeVar
 from pydantic import BaseModel
 
 from shared.schemas.attack_event import AttackEvent
+from shared.schemas.security_decision import SecurityDecision
 from shared.schemas.verdict import Verdict
 
 
@@ -12,7 +13,7 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class EventStore:
-    """JSONL-based storage for SENTINEL attack events and verdicts."""
+    """JSONL-based storage for SENTINEL security records."""
 
     def __init__(self, log_path: str | Path = "orchestrator/event_log/events.jsonl"):
         self.log_path = Path(log_path)
@@ -33,6 +34,9 @@ class EventStore:
     def append_verdict(self, verdict: Verdict) -> None:
         self._append("verdict", verdict)
 
+    def append_security_decision(self, decision: SecurityDecision) -> None:
+        self._append("security_decision", decision)
+
     def _read_records(self) -> list[dict]:
         if not self.log_path.exists():
             return []
@@ -43,10 +47,8 @@ class EventStore:
             for line in file:
                 line = line.strip()
 
-                if not line:
-                    continue
-
-                records.append(json.loads(line))
+                if line:
+                    records.append(json.loads(line))
 
         return records
 
@@ -64,6 +66,13 @@ class EventStore:
             if record["record_type"] == "verdict"
         ]
 
+    def get_security_decisions(self) -> list[SecurityDecision]:
+        return [
+            SecurityDecision.model_validate(record["data"])
+            for record in self._read_records()
+            if record["record_type"] == "security_decision"
+        ]
+
     def get_campaign_records(self, campaign_id: str) -> dict[str, list[BaseModel]]:
         attacks = [
             event
@@ -79,7 +88,14 @@ class EventStore:
             if verdict.event_id in event_ids
         ]
 
+        security_decisions = [
+            decision
+            for decision in self.get_security_decisions()
+            if decision.event_id in event_ids
+        ]
+
         return {
             "attack_events": attacks,
             "verdicts": verdicts,
+            "security_decisions": security_decisions,
         }

@@ -1,8 +1,11 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
+
+from orchestrator.real_defense_pipeline import RealDefensePipeline
 from orchestrator.campaign_manager import CampaignManager
 from shared.schemas.attack_event import AttackEvent
 from shared.schemas.verdict import Verdict
+from orchestrator.metrics.compute_metrics import compute_metrics
 
 
 app = FastAPI(
@@ -12,25 +15,9 @@ app = FastAPI(
 )
 
 
-def mock_defense(event: AttackEvent) -> Verdict:
-    """Temporary defense adapter for orchestrator integration testing."""
-
-    return Verdict(
-        event_id=event.event_id,
-        timestamp=event.timestamp,
-        layer_scores=[],
-        fusion_score=0.95 if event.attack_succeeded_against_agent else 0.05,
-        decision="decline" if event.attack_succeeded_against_agent else "approve",
-        attack_caught=event.attack_succeeded_against_agent,
-        explanation="Temporary mock defense used for orchestrator integration testing.",
-        latency_ms=1.0,
-    )
-
-
 campaign_manager = CampaignManager(
-    defense_pipeline=mock_defense
+    defense_pipeline=RealDefensePipeline()
 )
-
 
 @app.get("/health")
 def health_check():
@@ -39,6 +26,33 @@ def health_check():
         "service": "sentinel-orchestrator",
     }
 
+@app.get("/get_verdict/{event_id}", response_model=Verdict)
+def get_verdict(event_id: str):
+    verdicts = campaign_manager.event_store.get_verdicts()
+
+    for verdict in reversed(verdicts):
+        if verdict.event_id == event_id:
+            return verdict
+
+    raise HTTPException(
+        status_code=404,
+        detail=f"Verdict not found for event_id: {event_id}",
+    )
+
+@app.get("/get_metrics/{campaign_id}")
+def get_metrics(campaign_id: str):
+    records = campaign_manager.event_store.get_campaign_records(campaign_id)
+
+    metrics = compute_metrics(
+        records["attack_events"],
+        records["verdicts"],
+    )
+
+    return metrics
+
+@app.get("/get_campaign_records/{campaign_id}")
+def get_campaign_records(campaign_id: str):
+    return campaign_manager.event_store.get_campaign_records(campaign_id)
 
 @app.post("/run_campaign", response_model=list[Verdict])
 def run_campaign(events: list[AttackEvent]):

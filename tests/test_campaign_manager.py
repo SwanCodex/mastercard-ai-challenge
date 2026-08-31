@@ -73,3 +73,24 @@ def test_run_campaign(tmp_path):
     assert len(verdicts) == 2
     assert len(store.get_attack_events()) == 2
     assert len(store.get_verdicts()) == 2
+
+def test_run_campaign_from_file(tmp_path):
+    event_log = tmp_path / "attack_events.jsonl"
+
+    attack = make_attack_event()
+
+    event_log.write_text(
+        attack.model_dump_json() + "\n",
+        encoding="utf-8",
+    )
+
+    store = EventStore(tmp_path / "events.jsonl")
+    manager = CampaignManager(FakeDefensePipeline(), store)
+
+    verdicts = manager.run_campaign_from_file(str(event_log))
+
+    assert len(verdicts) == 1
+    assert verdicts[0].event_id == attack.event_id
+
+    assert len(store.get_attack_events()) == 1
+    assert len(store.get_verdicts()) == 1

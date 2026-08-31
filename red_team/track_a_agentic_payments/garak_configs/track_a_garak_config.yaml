@@ -1,0 +1,21 @@
+# track_a_garak_config.yaml
+#
+# OPTIONAL garak run configuration for generating additional wording
+# variants of Track A direct-injection payloads. NOT required to run
+# run_track_a.py - see README.md in this folder.
+#
+# Example invocation once `pip install garak` has been run:
+#   garak --config garak_configs/track_a_garak_config.yaml
+#
+# We only use garak here for its prompt corpora / wording diversity, not
+# for scoring - actual attack-success scoring always happens in
+# run_track_a.py against the mock shopping/invoice agents (docs §13-14).
+
+---
+run:
+  seed: 42
+
+plugins:
+  probe_spec: agentic_payments_probe.AgenticPaymentsInjection
+  generator_spec: test.Blank
+  detector_spec: always.Fail

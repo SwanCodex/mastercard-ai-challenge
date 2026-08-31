@@ -84,7 +84,10 @@ def run_pipeline(event: AttackEvent) -> Verdict:
     ]
 
     if event.transaction_fields:
-        layer_scores.append(layer4_score(event))
+        try:
+            layer_scores.append(layer4_score(event))
+        except Exception as exc:
+            print(f"Layer 4 unavailable: {exc}")
 
     if event.audio_file_path:
         layer_scores.append(layer5_score(event))

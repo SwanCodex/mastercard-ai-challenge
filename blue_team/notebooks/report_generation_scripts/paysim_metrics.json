@@ -1,0 +1,21 @@
+{
+  "dataset": "PaySim (synthetic)",
+  "model": "XGBoost",
+  "auroc": 0.9991503141008116,
+  "accuracy": 0.9997461737460355,
+  "precision": 0.9654442877291961,
+  "recall": 0.8332318928788801,
+  "f1": 0.8944789284547533,
+  "confusion_matrix": [
+    [
+      1270832,
+      49
+    ],
+    [
+      274,
+      1369
+    ]
+  ],
+  "test_size": 1272524,
+  "test_fraud_rate": 0.0012911347840983745
+}

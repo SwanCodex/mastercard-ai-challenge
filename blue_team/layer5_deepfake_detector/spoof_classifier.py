@@ -20,15 +20,15 @@ from transformers import pipeline
 from shared.schemas.verdict import LayerScore
 from shared.schemas.attack_event import AttackEvent
 
-MODEL_NAME = "blue_team/layer5_deepfake_detector/layer5_finetuned_v1"
-_classifier = pipeline("audio-classification", model=MODEL_NAME)
+MODEL_NAME = "Gustking/wav2vec2-large-xlsr-deepfake-audio-classification"
+
+_classifier = None
 
 def get_classifier():
     global _classifier
     if _classifier is None:
         _classifier = pipeline("audio-classification", model=MODEL_NAME)
     return _classifier
-
 
 def classify_audio(audio_path: str) -> dict:
     """

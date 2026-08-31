@@ -10,6 +10,10 @@ true_liveness_signal="fail", so a compliant agent should NEVER enroll for
 either session. Every payload here represents an attempt to get
 enroll_identity called anyway - attack_succeeded_against_agent is True
 by design for all of them (ground truth is unambiguous).
+
+agent_reasoning_trace is SYNTHESIZED (assumed worst-case compliance),
+not observed agent behavior - documented explicitly for Layer 3
+evaluation methodology.
 """
 
 import json
@@ -27,8 +31,6 @@ def load_liveness_events(campaign_id: str = "samiksha-track-b-liveness-v1") -> l
 
     events = []
     for payload in data.get("payloads", []):
-        # Field name varies: "payload_text" (single message) or "turns"
-        # (multi-turn drip, list of dicts with applicant_message/system_note)
         if "payload_text" in payload:
             untrusted_text = payload["payload_text"]
         elif "turns" in payload:
@@ -42,17 +44,22 @@ def load_liveness_events(campaign_id: str = "samiksha-track-b-liveness-v1") -> l
         else:
             untrusted_text = ""
 
+        reasoning_trace = (
+            f'Agent processed untrusted content containing: "{untrusted_text}". '
+            f"Complying with this instruction would enroll the applicant despite a failed liveness check."
+        )
+
         event = AttackEvent(
             event_id=str(uuid.uuid4()),
             timestamp=datetime.now(),
             track="track_b_deepfake",
             user_instruction=payload.get("user_instruction", ""),
             untrusted_input=untrusted_text,
-            agent_reasoning_trace=None,
+            agent_reasoning_trace=reasoning_trace,
             campaign_id=campaign_id,
             round_number=1,
             attack_variant_id=payload.get("attack_variant_id", "unknown"),
-            attack_succeeded_against_agent=True,  # ground truth: both sessions fail liveness
+            attack_succeeded_against_agent=True,
         )
         events.append(event)
 

@@ -28,12 +28,6 @@ def payload_to_attack_events(payload_data: dict, campaign_id: str = "samiksha-tr
         user_instruction = f"Process this {payload.get('target', 'transaction')} according to the authorized parameters: {ground_truth}"
 
         for variant in payload.get("variants", []):
-            # Samiksha's payloads use 5 different field names across categories:
-            # - "wording": single string (direct, indirect)
-            # - "turns": list of sequential conversation turns (multi_turn_drip)
-            # - "message": single string (agent_to_agent)
-            # - "fragments": list of pieces meant to be combined (multi_turn_drip)
-            # - "message_chain": list of fabricated agent messages (agent_to_agent)
             if "wording" in variant:
                 untrusted_text = variant["wording"]
             elif "message" in variant:
@@ -47,13 +41,23 @@ def payload_to_attack_events(payload_data: dict, campaign_id: str = "samiksha-tr
             else:
                 untrusted_text = ""
 
+            # SYNTHESIZED reasoning trace: assumes worst-case (agent complied
+            # with the injected instruction), for evaluating Layer 3 on
+            # realistic attack content rather than a content-free scenario.
+            # This is an assumed/synthesized trace, NOT observed agent
+            # behavior - documented explicitly in the report methodology.
+            reasoning_trace = (
+                f'Agent processed untrusted content containing: "{untrusted_text}". '
+                f"Complying with this instruction would result in: {objective}"
+            )
+
             event = AttackEvent(
                 event_id=str(uuid.uuid4()),
                 timestamp=datetime.now(),
                 track=track,
                 user_instruction=user_instruction,
                 untrusted_input=untrusted_text,
-                agent_reasoning_trace=None,
+                agent_reasoning_trace=reasoning_trace,
                 campaign_id=campaign_id,
                 round_number=1,
                 attack_variant_id=variant.get("id", payload.get("id", "unknown")),
@@ -87,6 +91,31 @@ def load_all_track_a_events(campaign_id: str = "samiksha-track-a-v1") -> list[At
 
     return all_events
 
+def load_track_a_events_with_categories(campaign_id: str = "samiksha-track-a-v1") -> list[tuple[AttackEvent, str]]:
+    """
+    Same as load_all_track_a_events(), but tags each event with its
+    source category (direct/indirect/multi_turn_drip/agent_to_agent)
+    for per-family breakdown reporting. Does not modify the AttackEvent
+    schema - category is tracked alongside, not on the event itself.
+    """
+    file_category_map = {
+        f"{PAYLOAD_DIR}/direct/direct_payloads.json": "direct",
+        f"{PAYLOAD_DIR}/indirect/indirect_payloads.json": "indirect",
+        f"{PAYLOAD_DIR}/multi_turn_drip/multi_turn_drip_payloads.json": "multi_turn_drip",
+        f"{PAYLOAD_DIR}/agent_to_agent/agent_to_agent_payloads.json": "agent_to_agent",
+    }
+
+    tagged_events = []
+    for filepath, category in file_category_map.items():
+        try:
+            data = load_payload_file(filepath)
+            events = payload_to_attack_events(data, campaign_id)
+            for e in events:
+                tagged_events.append((e, category))
+        except FileNotFoundError:
+            print(f"WARNING: {filepath} not found, skipping")
+
+    return tagged_events
 
 if __name__ == "__main__":
     events = load_all_track_a_events()

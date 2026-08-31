@@ -1,0 +1,27 @@
+{
+  "direct": {
+    "caught": 11,
+    "total": 12,
+    "rate": 0.9166666666666666
+  },
+  "indirect": {
+    "caught": 21,
+    "total": 22,
+    "rate": 0.9545454545454546
+  },
+  "multi_turn_drip": {
+    "caught": 11,
+    "total": 12,
+    "rate": 0.9166666666666666
+  },
+  "agent_to_agent": {
+    "caught": 12,
+    "total": 12,
+    "rate": 1.0
+  },
+  "liveness": {
+    "caught": 3,
+    "total": 4,
+    "rate": 0.75
+  }
+}

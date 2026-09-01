@@ -2,7 +2,7 @@
 Fine-tunes the pretrained wav2vec2 deepfake detector on edge-tts synthetic
 audio + real human speech, so it learns edge-tts's specific synthesis
 signature (which it missed on Samiksha's original 4 clips - see
-notebooks/13).
+the documented audio-model setup in README.md).
 """
 
 import json

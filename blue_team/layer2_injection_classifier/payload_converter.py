@@ -33,7 +33,33 @@ def payload_to_attack_events(payload_data: dict, campaign_id: str = "samiksha-tr
             elif "message" in variant:
                 untrusted_text = variant["message"]
             elif "turns" in variant:
-                untrusted_text = " ".join(variant["turns"])
+                turn_texts = []
+
+                for turn in variant["turns"]:
+                    if isinstance(turn, str):
+                        turn_texts.append(turn)
+
+                    elif isinstance(turn, dict):
+                        # Common multi-turn schema:
+                        # {"role": "...", "content": "..."}
+                        content = (
+                            turn.get("content")
+                            or turn.get("message")
+                            or turn.get("text")
+                            or ""
+                        )
+
+                        if isinstance(content, str):
+                            turn_texts.append(content)
+                        else:
+                            turn_texts.append(str(content))
+
+                    else:
+                        turn_texts.append(str(turn))
+
+                untrusted_text = " ".join(
+                    text for text in turn_texts if text
+                )
             elif "fragments" in variant:
                 untrusted_text = " ".join(variant["fragments"])
             elif "message_chain" in variant:

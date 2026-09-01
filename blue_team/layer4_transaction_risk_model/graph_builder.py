@@ -143,7 +143,7 @@ def build_pyg_graph_v4(df: pd.DataFrame, card_to_idx: dict, addr_to_idx: dict):
     v4: v3's feature set + 131 low-missingness V-columns (Vesta engineered
     features) + D10, to close the gap toward XGBoost's full 392-feature set.
     V-columns and D-columns with >15% missingness were excluded as noise
-    (see notebooks/14 for the missingness analysis).
+    (see README.md for the model architecture and data-processing notes).
     """
     num_cards = len(card_to_idx)
     num_addrs = len(addr_to_idx)

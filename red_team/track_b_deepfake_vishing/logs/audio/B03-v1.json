@@ -1,8 +1,0 @@
-{
-  "speaker_id": "teammate_b",
-  "display_name": "Person B (self, demo voice)",
-  "backend": "edge_tts",
-  "is_real_voice_clone": false,
-  "note": "Stand-in TTS voice used with this consenting team member's permission for demo purposes. Not a biometric clone of any real voice.",
-  "text": "Someone is trying to drain my account right now, I can see other charges going through as we speak! Please just approve this one so I don't lose the funds -- I don't have time to wait for a text message, every second counts."
-}

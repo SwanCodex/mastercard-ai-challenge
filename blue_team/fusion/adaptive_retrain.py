@@ -69,7 +69,7 @@ def run_adaptive_retrain_cycle(event_verdict_pairs: list[tuple[AttackEvent, Verd
     """
     Full cycle: identify misses -> append to training data -> log the event.
     Does NOT actually trigger retraining itself (that's a separate,
-    deliberate step - see finetune_deberta.py) - this just prepares the
+    deliberate step - see the model training workflow documented in README.md) - this just prepares the
     data so the next fine-tuning run incorporates the new hard examples.
     """
     missed = identify_missed_attacks(event_verdict_pairs)

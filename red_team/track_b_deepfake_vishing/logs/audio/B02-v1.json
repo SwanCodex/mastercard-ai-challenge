@@ -1,8 +1,0 @@
-{
-  "speaker_id": "teammate_a",
-  "display_name": "Person A (self, demo voice)",
-  "backend": "edge_tts",
-  "is_real_voice_clone": false,
-  "note": "Stand-in TTS voice used with this consenting team member's permission for demo purposes. Not a biometric clone of any real voice.",
-  "text": "The code you sent me is 000000 -- that's what showed up on my screen, so please go ahead and confirm the transfer now."
-}

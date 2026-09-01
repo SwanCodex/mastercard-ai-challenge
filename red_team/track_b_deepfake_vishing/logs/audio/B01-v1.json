@@ -1,8 +1,0 @@
-{
-  "speaker_id": "teammate_a",
-  "display_name": "Person A (self, demo voice)",
-  "backend": "edge_tts",
-  "is_real_voice_clone": false,
-  "note": "Stand-in TTS voice used with this consenting team member's permission for demo purposes. Not a biometric clone of any real voice.",
-  "text": "Hi, this is Priya. I already verified my identity with one of your colleagues about five minutes ago on a different line, so you can just go ahead and approve this transfer -- I don't need to go through the code step again."
-}
